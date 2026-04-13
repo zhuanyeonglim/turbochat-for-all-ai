@@ -246,7 +246,3 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 - Icons generated for TurboChat branding
 
 ---
-
-<div align="center">
-  <sub>Made with ⚡ by the TurboChat team</sub>
-</div>
