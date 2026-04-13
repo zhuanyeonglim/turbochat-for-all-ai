@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TurboChat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0e0e11; --s1: #17171c; --s2: #1f1f26;
+      --border: rgba(255,255,255,.07); --border2: rgba(255,255,255,.14);
+      --text: #eeedf5; --muted: #80809a; --faint: #35354a;
+      --gpt: #10a37f; --gpt-bg: rgba(16,163,127,.1); --gpt-bd: rgba(16,163,127,.22);
+      --cl:  #e07b53; --cl-bg:  rgba(224,123,83,.1);  --cl-bd:  rgba(224,123,83,.22);
+      --gm:  #4285f4; --gm-bg:  rgba(66,133,244,.1);  --gm-bd:  rgba(66,133,244,.22);
+      --accent: var(--gpt); --accent-bg: var(--gpt-bg); --accent-bd: var(--gpt-bd);
+    }
+    body {
+      width: 330px; background: var(--bg); color: var(--text);
+      font-family: 'Outfit', sans-serif; font-size: 14px;
+      -webkit-font-smoothing: antialiased; user-select: none;
+    }
+    .bar { height: 2px; background: linear-gradient(90deg, var(--gpt) 0%, var(--cl) 50%, var(--gm) 100%); }
+
+    /* Header */
+    .hdr {
+      padding: 13px 16px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--gpt), var(--gm));
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .logo svg { width: 17px; height: 17px; fill: #fff; }
+    .brand-name { font-size: 15px; font-weight: 800; letter-spacing: -.02em; }
+    .brand-tag  { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+    /* Power toggle */
+    .pwr { cursor: pointer; display: inline-flex; align-items: center; }
+    .pwr input { display: none; }
+    .pwr-track {
+      display: block; width: 44px; height: 26px; border-radius: 13px;
+      background: #35354a; border: 2px solid #4a4a60; position: relative;
+      transition: background .2s, border-color .2s; flex-shrink: 0;
+    }
+    .pwr-thumb {
+      display: block; position: absolute; top: 4px; left: 4px;
+      width: 14px; height: 14px; border-radius: 50%; background: #999;
+      transition: transform .2s, background .2s;
+    }
+    .pwr input:checked + .pwr-track { background: var(--accent); border-color: var(--accent); }
+    .pwr input:checked + .pwr-track .pwr-thumb { transform: translateX(18px); background: #fff; }
+
+    /* Platform tabs — 3 columns */
+    .tabs {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px; padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 8px 6px; border-radius: 7px;
+      background: var(--s1); border: 1px solid var(--border);
+      color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 600;
+      cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+      transition: all .15s;
+    }
+    .tab svg { width: 14px; height: 14px; flex-shrink: 0; fill: currentColor; }
+    .tab.active-gpt { background: var(--gpt-bg); border-color: var(--gpt-bd); color: var(--gpt); }
+    .tab.active-cl  { background: var(--cl-bg);  border-color: var(--cl-bd);  color: var(--cl);  }
+    .tab.active-gm  { background: var(--gm-bg);  border-color: var(--gm-bd);  color: var(--gm);  }
+
+    /* Stats */
+    .stats {
+      display: grid; grid-template-columns: 1fr 1fr;
+      padding: 6px 14px 10px; gap: 8px;
+    }
+    .stat {
+      background: var(--s1); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 10px; text-align: center;
+    }
+    .stat-n { font-size: 26px; font-weight: 800; letter-spacing: -.04em; line-height:1; color:var(--text); }
+    .stat-n.hi { color: var(--accent); }
+    .stat-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing:.07em; color:var(--muted); margin-top:4px; }
+
+    .notice { margin:0 14px 8px; padding:9px 13px; border-radius:7px; background:var(--s1); border:1px solid var(--border); font-size:12px; color:var(--muted); text-align:center; display:none; }
+
+    /* Card */
+    .card { margin:0 14px 10px; background:var(--s1); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .card-title { padding:8px 13px 6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); border-bottom:1px solid var(--border); }
+
+    /* Slider rows */
+    .srow { display:flex; align-items:center; justify-content:space-between; padding:12px 13px; gap:10px; border-bottom:1px solid var(--border); }
+    .srow:last-child { border-bottom:none; }
+    .srow-label { font-size:13px; font-weight:600; color:var(--text); }
+    .srow-hint  { font-size:10px; color:var(--muted); margin-top:2px; }
+    .srow-ctrl  { display:flex; align-items:center; gap:9px; flex-shrink:0; }
+    input[type="range"] {
+      -webkit-appearance:none; width:78px; height:3px;
+      background:var(--faint); border-radius:2px; outline:none; cursor:pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+      background:var(--accent); box-shadow:0 0 0 3px var(--accent-bg); transition:box-shadow .15s;
+    }
+    input[type="range"]:hover::-webkit-slider-thumb { box-shadow:0 0 0 5px var(--accent-bg); }
+    .sval { font-size:14px; font-weight:800; color:var(--accent); min-width:24px; text-align:right; letter-spacing:-.02em; }
+
+    /* Reset */
+    .reset-row { display:flex; align-items:center; justify-content:space-between; padding:11px 13px; }
+    .reset-label { font-size:13px; font-weight:600; }
+    .reset-hint  { font-size:10px; color:var(--muted); margin-top:2px; }
+    .btn-reset { background:rgba(239,68,68,.1); color:#f87171; border:1px solid rgba(239,68,68,.22); border-radius:6px; padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0; transition:background .15s; }
+    .btn-reset:hover { background:rgba(239,68,68,.2); }
+
+    /* Shortcut */
+    .shortcut-row { display:flex; align-items:center; justify-content:space-between; padding:7px 13px 10px; gap:6px; background:rgba(255,255,255,.02); border-top:1px solid var(--border); }
+    .shortcut-label { font-size:10px; color:var(--muted); }
+    kbd { display:inline-flex; align-items:center; background:#2a2a35; border:1px solid #44445a; border-radius:3px; padding:2px 6px; font-size:10px; font-weight:600; font-family:inherit; color:var(--text); box-shadow:0 1px 0 #44445a; }
+    .shortcut-plus { font-size:10px; color:var(--faint); margin:0 1px; }
+
+    /* Plus features */
+    .feat-row { display:flex; align-items:center; justify-content:space-between; padding:11px 13px; border-bottom:1px solid var(--border); gap:12px; }
+    .feat-row:last-child { border-bottom:none; }
+    .feat-label { font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; }
+    .feat-hint  { font-size:10px; color:var(--muted); margin-top:2px; }
+    .badge { font-size:9px; font-weight:700; padding:2px 5px; border-radius:3px; letter-spacing:.04em; text-transform:uppercase; }
+    .badge-blue   { background:rgba(96,165,250,.12); color:#60a5fa; }
+    .badge-purple { background:rgba(167,139,250,.12); color:#a78bfa; }
+    .badge-amber  { background:rgba(251,191,36,.12);  color:#fbbf24; }
+    .badge.off    { opacity:.3; }
+    .tog { cursor:pointer; flex-shrink:0; display:inline-flex; align-items:center; }
+    .tog input { display:none; }
+    .tog-track { display:block; width:38px; height:21px; border-radius:11px; background:#35354a; border:2px solid #4a4a60; position:relative; transition:background .2s,border-color .2s; cursor:pointer; flex-shrink:0; }
+    .tog-thumb { display:block; position:absolute; top:3px; left:3px; width:11px; height:11px; border-radius:50%; background:#999; transition:transform .2s,background .2s; }
+    .tog input:checked + .tog-track { background:#10a37f; border-color:#10a37f; }
+    .tog input:checked + .tog-track .tog-thumb { transform:translateX(17px); background:#fff; }
+
+    /* ── Export card ── */
+    .export-card { margin:0 14px 10px; background:var(--s1); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .export-title { padding:8px 13px 6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .export-subtitle { font-size:9px; font-weight:400; text-transform:none; letter-spacing:0; color:var(--muted); }
+    .format-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px; padding:10px 12px; }
+    .fmt-btn {
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      padding:9px 4px; border-radius:8px;
+      background:var(--s2); border:1px solid var(--border);
+      color:var(--muted); font-family:inherit; font-size:10px; font-weight:700;
+      letter-spacing:.02em; cursor:pointer; transition:all .15s;
+    }
+    .fmt-btn:hover { background:var(--accent-bg); border-color:var(--accent-bd); color:var(--accent); }
+    .fmt-btn.exporting { opacity:.5; cursor:default; }
+    .fmt-icon { font-size:16px; line-height:1; }
+    .fmt-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+    .export-note { padding:6px 12px 10px; font-size:10px; color:var(--muted); text-align:center; }
+
+    /* Footer */
+    .ftr { padding:9px 14px; display:flex; align-items:center; justify-content:space-between; border-top:1px solid var(--border); }
+    .ftr-copy { font-size:10px; color:var(--faint); }
+    .btn-save { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:7px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity .15s; }
+    .btn-save:hover { opacity:.85; }
+
+    .app.off .stats, .app.off .card, .app.off .export-card { opacity:.25; pointer-events:none; }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <div class="bar"></div>
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24"><path d="M13 2L4.09 12.26a1 1 0 00.74 1.74H11l-1 8 8.91-10.26A1 1 0 0018 10h-6.22z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">TurboChat</div>
+        <div class="brand-tag" id="brand-tag">for All AI</div>
+      </div>
+    </div>
+    <label class="pwr" id="pwr-label">
+      <input type="checkbox" id="tog-main" checked>
+      <span class="pwr-track"><span class="pwr-thumb"></span></span>
+    </label>
+  </div>
+
+  <!-- Platform tabs — 3 columns -->
+  <div class="tabs">
+    <button class="tab active-gpt" id="tab-gpt">
+      <svg viewBox="0 0 24 24"><path d="M22.28 9.82a5.98 5.98 0 00-.52-4.91 6.05 6.05 0 00-6.51-2.9A6.07 6.07 0 004.98 4.18a5.98 5.98 0 00-4 2.9 6.05 6.05 0 00.74 7.1 5.98 5.98 0 00.51 4.91 6.05 6.05 0 006.51 2.9A5.98 5.98 0 0013.26 24a6.06 6.06 0 005.77-4.21 5.99 5.99 0 004-2.9 6.06 6.06 0 00-.75-7.07z"/></svg>
+      ChatGPT
+    </button>
+    <button class="tab" id="tab-cl">
+      <svg viewBox="0 0 24 24"><path d="M17.12 12l-2.04-5.49a2.86 2.86 0 00-.21-.43L13 3.45l-.08-.1-.05-.05-.05.05-.08.1-1.86 2.63-1.81 2.51 1.79 2.99.1.02.09-.08 1.63-2.22 1.1 2.89-.06.15-2.04 5.49-.08.23.08.1.13-.02 2.16-3.04 2.21 3.04.13.02.08-.1-.08-.23z"/></svg>
+      Claude
+    </button>
+    <button class="tab" id="tab-gm">
+      <svg viewBox="0 0 24 24"><path d="M12 11.5v2.5h3.87c-.16 1-1.19 2.93-3.87 2.93-2.33 0-4.23-1.93-4.23-4.31S9.67 8.3 12 8.3c1.32 0 2.21.57 2.72 1.05l1.85-1.78C15.34 6.27 13.79 5.5 12 5.5 8.41 5.5 5.5 8.42 5.5 12S8.41 18.5 12 18.5c3.78 0 6.29-2.66 6.29-6.4 0-.43-.05-.75-.11-1.08H12z"/></svg>
+      Gemini
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-n" id="s-vis">—</div><div class="stat-lbl">Visible</div></div>
+    <div class="stat"><div class="stat-n hi" id="s-hid">—</div><div class="stat-lbl">Hidden</div></div>
+  </div>
+
+  <div class="notice" id="notice">Open ChatGPT, Claude, or Gemini to activate</div>
+
+  <!-- Settings -->
+  <div class="card">
+    <div class="card-title">Settings</div>
+    <div class="srow">
+      <div><div class="srow-label">Messages on open</div><div class="srow-hint">Shown when chat first loads</div></div>
+      <div class="srow-ctrl">
+        <input type="range" id="sl-limit" min="5" max="50" step="5" value="5">
+        <span class="sval" id="v-limit">5</span>
+      </div>
+    </div>
+    <div class="srow">
+      <div><div class="srow-label">Load batch size</div><div class="srow-hint">Per "Load previous" click</div></div>
+      <div class="srow-ctrl">
+        <input type="range" id="sl-batch" min="5" max="30" step="5" value="10">
+        <span class="sval" id="v-batch">10</span>
+      </div>
+    </div>
+    <div class="reset-row">
+      <div><div class="reset-label">Reset shown messages</div><div class="reset-hint">Back to default for this chat</div></div>
+      <button class="btn-reset" id="btn-reset">Reset</button>
+    </div>
+    <div class="shortcut-row">
+      <span class="shortcut-label">⌨️ Load More</span>
+      <div><kbd>Alt</kbd><span class="shortcut-plus">+</span><kbd>Shift</kbd><span class="shortcut-plus">+</span><kbd>L</kbd></div>
+    </div>
+  </div>
+
+  <!-- Plus features (ChatGPT only) -->
+  <div class="card" id="plus-card">
+    <div class="card-title">Plus Features · ChatGPT only</div>
+    <div class="feat-row">
+      <div><div class="feat-label">⚙️ Web Worker <span class="badge badge-blue" id="b-worker">Active</span></div><div class="feat-hint">JSON parsing never blocks the page</div></div>
+      <label class="tog"><input type="checkbox" id="t-worker" checked><span class="tog-track"><span class="tog-thumb"></span></span></label>
+    </div>
+    <div class="feat-row">
+      <div><div class="feat-label">💾 IndexedDB <span class="badge badge-purple" id="b-idb">Active</span></div><div class="feat-hint">Instant repeat visits</div></div>
+      <label class="tog"><input type="checkbox" id="t-idb" checked><span class="tog-track"><span class="tog-thumb"></span></span></label>
+    </div>
+    <div class="feat-row">
+      <div><div class="feat-label">🎯 Token Batching <span class="badge badge-amber" id="b-batch">Active</span></div><div class="feat-hint">Smoother streaming generation</div></div>
+      <label class="tog"><input type="checkbox" id="t-batching" checked><span class="tog-track"><span class="tog-thumb"></span></span></label>
+    </div>
+  </div>
+
+  <!-- Export card -->
+  <div class="export-card">
+    <div class="export-title">
+      Export Conversation
+      <span class="export-subtitle" id="export-scope">All messages + images</span>
+    </div>
+    <div class="format-grid">
+      <button class="fmt-btn" id="fmt-pdf" data-format="pdf">
+        <span class="fmt-icon">📄</span>
+        <span class="fmt-label">PDF</span>
+      </button>
+      <button class="fmt-btn" id="fmt-word" data-format="word">
+        <span class="fmt-icon">📝</span>
+        <span class="fmt-label">Word</span>
+      </button>
+      <button class="fmt-btn" id="fmt-json" data-format="json">
+        <span class="fmt-icon">🗂️</span>
+        <span class="fmt-label">JSON</span>
+      </button>
+      <button class="fmt-btn" id="fmt-markdown" data-format="markdown">
+        <span class="fmt-icon">✍️</span>
+        <span class="fmt-label">MD</span>
+      </button>
+    </div>
+    <div class="export-note" id="export-note">Click a format to export</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="ftr">
+    <span class="ftr-copy">TurboChat v2.0</span>
+    <button class="btn-save" id="btn-save">Save</button>
+  </div>
+
+</div>
+<script src="popup.js"></script>
+</body>
+</html>
