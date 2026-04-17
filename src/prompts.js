@@ -435,17 +435,57 @@ async function insertFromView() {
   await S.set('tc_last_prompt', { id: window._vid, text });
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) { await navigator.clipboard.writeText(text); toast('Copied (no active tab)', true); return; }
+  if (!tab?.id) { await navigator.clipboard.writeText(text); toast('Copied — no active tab', true); return; }
 
   const isAI = tab.url?.match(/chatgpt\.com|claude\.ai|gemini\.google\.com|perplexity\.ai|poe\.com/);
   if (!isAI)  { await navigator.clipboard.writeText(text); toast('Copied — open an AI chat to insert', true); return; }
 
   try {
-    await chrome.tabs.sendMessage(tab.id, { type: 'TURBOCHAT_INSERT_PROMPT', text });
-    toast('Inserted into chat ✓', true);
-  } catch {
-    await navigator.clipboard.writeText(text);
-    toast('Copied to clipboard ✓', true);
+    // Send via runtime message to content script
+    const response = await chrome.tabs.sendMessage(tab.id, { type: 'TURBOCHAT_INSERT_PROMPT', text });
+    if (response?.ok) {
+      toast('Inserted into chat ✓', true);
+    } else {
+      throw new Error('Insert returned not ok');
+    }
+  } catch (err) {
+    // Fallback: inject directly via scripting API
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: (promptText) => {
+          const selectors = [
+            '[contenteditable="true"][role="textbox"]',
+            '[contenteditable="true"][data-lexical-editor="true"]',
+            'div.ProseMirror[contenteditable="true"]',
+            '[contenteditable="true"]',
+            'textarea',
+          ];
+          let el = null;
+          for (const s of selectors) {
+            el = document.querySelector(s);
+            if (el && el.offsetParent !== null) break;
+          }
+          if (!el) return false;
+          el.focus();
+          if (el instanceof HTMLTextAreaElement) {
+            const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set;
+            if (setter) setter.call(el, promptText); else el.value = promptText;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          } else if (el.isContentEditable) {
+            el.focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, promptText);
+          }
+          return true;
+        },
+        args: [text],
+      });
+      toast('Inserted into chat ✓', true);
+    } catch {
+      await navigator.clipboard.writeText(text);
+      toast('Copied to clipboard ✓', true);
+    }
   }
 }
 

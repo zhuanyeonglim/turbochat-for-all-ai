@@ -176,6 +176,15 @@
     broadcastStatus(msgs.length, vis, hiddenCount);
   }
 
+  // UI elements to skip during Claude export
+  const CLAUDE_UI_STRIP = [
+    'button','[class*="action-bar"]','[class*="copy-btn"]','[class*="feedback"]',
+    '[class*="thumb"]','[class*="footnote"]','[class*="scroll-button"]',
+    '[class*="toolbar"]','[class*="citation"]','[aria-hidden="true"]',
+    '[class*="response-actions"]','[class*="model-icon"]','[class*="avatar"]',
+    '[class*="bot-avatar"]','[class*="header-icon"]',
+  ].join(',');
+
   // ── Export — ALL messages, images captured ─────────────────────────────────
   async function exportChat(format) {
     const core = window.__tcExportCore;
@@ -189,7 +198,7 @@
     document.querySelectorAll('img[loading="lazy"]').forEach(img => {
       img.loading = 'eager'; img.removeAttribute('loading');
     });
-    await new Promise(r => setTimeout(r, 800)); // let images start loading
+    await new Promise(r => setTimeout(r, 1200)); // let images start loading
 
     const title = document.title.replace(/\s*[-|].*Cla.*$/i,'').trim() || 'Claude Conversation';
     const msgs  = getMessageGroups();
@@ -198,7 +207,7 @@
     for (const turn of msgs) {
       const isUser = !!turn.querySelector('[class*="human"],[class*="HumanTurn"],[class*="user-message"]')
                   || (turn.className||'').toLowerCase().includes('human');
-      const images = await core.extractImages(turn);
+      const images = await core.extractImages(turn, CLAUDE_UI_STRIP);
       const inner  = turn.cloneNode(true);
       extracted.push({
         role:   isUser ? 'user' : 'assistant',
@@ -282,20 +291,55 @@
 })();
 
 // ── Prompt Library injection ──────────────────────────────────────────────────
-window.addEventListener('message', (e) => {
-  if (e.data?.type === 'TURBOCHAT_INSERT_PROMPT' && e.data.text) {
-    const selectors = ['textarea','[contenteditable="true"][role="textbox"]','[contenteditable="true"]'];
-    let el = null;
-    for (const s of selectors) { el = document.querySelector(s); if (el?.offsetParent) break; }
-    if (!el) return;
+function tcInsertPrompt(text) {
+  const selectors = [
+    '[contenteditable="true"][role="textbox"]',
+    '[contenteditable="true"][data-lexical-editor="true"]',
+    'div.ProseMirror[contenteditable="true"]',
+    '[contenteditable="true"]',
+    'textarea',
+  ];
+  let el = null;
+  for (const s of selectors) {
+    el = document.querySelector(s);
+    if (el && el.offsetParent !== null) break;
+  }
+  if (!el) return false;
+  el.focus();
+  if (el instanceof HTMLTextAreaElement) {
+    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set;
+    if (setter) setter.call(el, text); else el.value = text;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (el.isContentEditable) {
     el.focus();
-    if (el instanceof HTMLTextAreaElement) {
-      const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set;
-      setter?.call(el, e.data.text);
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    } else if (el.isContentEditable) {
-      el.textContent = e.data.text;
+    document.execCommand('selectAll', false, null);
+    const ok = document.execCommand('insertText', false, text);
+    if (!ok) {
+      el.textContent = '';
+      const lines = text.split('\n');
+      lines.forEach((line, i) => {
+        el.appendChild(document.createTextNode(line));
+        if (i < lines.length - 1) el.appendChild(document.createElement('br'));
+      });
       el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
     }
+  }
+  return true;
+}
+
+// postMessage channel (from side panel iframe)
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'TURBOCHAT_INSERT_PROMPT' && e.data.text) {
+    tcInsertPrompt(e.data.text);
+  }
+});
+
+// runtime.onMessage channel (from chrome.tabs.sendMessage in prompts.js)
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'TURBOCHAT_INSERT_PROMPT') {
+    const ok = tcInsertPrompt(msg.text || '');
+    sendResponse({ ok });
+    return false;
   }
 });

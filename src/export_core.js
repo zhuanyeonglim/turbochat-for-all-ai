@@ -11,14 +11,33 @@
 
   /* ── UI image detection ────────────────────────────────────────────────── */
   function isUIImage(img) {
+    const src = img.src || '';
+
+    // Skip Google static assets (gstatic) — these are always UI icons/logos
+    if (src.includes('gstatic.com')) return true;
+    // Skip Gemini sparkle/star logo specifically
+    if (src.includes('gemini_sparkle') || src.includes('gemini_icon')
+        || src.includes('sparkle_resting') || src.includes('lamda/images')) return true;
+    // Skip SVG data URLs that are typically icons
+    if (src.startsWith('data:image/svg')) return true;
+    // Skip tiny favicons
+    if (src.includes('favicon')) return true;
+
     const uiTags    = ['NAV','HEADER','ASIDE','BUTTON','FOOTER'];
-    const uiClasses = /logo|avatar|icon|sprite|badge|thumb|decorat|star|gem|brand/i;
+    // Extended UI class pattern — catches Gemini's model-icon, response-header etc
+    const uiClasses = /logo|avatar|icon|sprite|badge|thumb|decorat|star|gem|brand|model-icon|response-header|sparkle|header-icon|platform-icon/i;
+
     let node = img.parentElement;
     while (node && node !== document.body) {
       if (uiTags.includes(node.tagName)) return true;
       if (node.getAttribute('role') === 'img') return true;
       if (node.getAttribute('aria-hidden') === 'true') return true;
-      if (uiClasses.test((node.className || '') + ' ' + (node.id || ''))) return true;
+      const cls = (node.className || '') + ' ' + (node.id || '');
+      const tag = (node.tagName || '').toLowerCase();
+      if (uiClasses.test(cls)) return true;
+      // Gemini-specific custom elements that are always UI chrome
+      if (['model-thoughts','response-header','toolbelt','message-actions',
+           'response-actions','model-icon'].includes(tag)) return true;
       node = node.parentElement;
     }
     return false;
@@ -31,14 +50,18 @@
         const xhr = new XMLHttpRequest();
         xhr.open('GET', src, true);
         xhr.responseType = 'blob';
-        xhr.timeout = 12000;
-        // Always send credentials — signed CDN URLs (OpenAI Azure, Google CDN)
-        // validate against the user's active session cookies.
+        xhr.timeout = 15000;
         xhr.withCredentials = true;
+        xhr.setRequestHeader('Accept', 'image/*,*/*;q=0.8');
         xhr.onload = () => {
           if (xhr.status !== 200) { resolve(null); return; }
           const reader = new FileReader();
-          reader.onload  = () => resolve(reader.result);
+          reader.onload  = () => {
+            const result = reader.result;
+            // Skip SVG results — they render as black/white on canvas
+            if (result && result.includes('data:image/svg')) { resolve(null); return; }
+            resolve(result);
+          };
           reader.onerror = () => resolve(null);
           reader.readAsDataURL(xhr.response);
         };
@@ -60,11 +83,24 @@
   }
 
   /* ── Image capture ─────────────────────────────────────────────────────── */
-  async function extractImages(container) {
+  async function extractImages(container, uiStripSelectors) {
     const results = [];
+    // Build a set of UI elements to skip if selectors provided
+    const uiEls = new Set();
+    if (uiStripSelectors) {
+      try {
+        container.querySelectorAll(uiStripSelectors).forEach(el => {
+          el.querySelectorAll('img').forEach(img => uiEls.add(img));
+        });
+      } catch {}
+    }
 
     for (const img of container.querySelectorAll('img')) {
       if (!img.src || img.src === window.location.href) continue;
+      // Skip images inside UI chrome elements
+      if (uiEls.has(img)) continue;
+      // Skip SVG images — they render without color on canvas
+      if (img.src.endsWith('.svg') || img.src.startsWith('data:image/svg')) continue;
 
       // ── Force eager loading ───────────────────────────────────────────────
       // lazy loading was (wrongly) applied to all images by older versions.

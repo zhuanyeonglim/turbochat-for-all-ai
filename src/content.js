@@ -282,16 +282,38 @@ function tcFindChatInput() {
 
 function tcInsertText(el, text) {
   el.focus();
+
+  // Textarea / input — use React-compatible value setter
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
     const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set;
-    setter?.call(el, text);
+    if (setter) {
+      setter.call(el, text);
+    } else {
+      el.value = text;
+    }
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   }
+
+  // ContentEditable (ChatGPT Lexical, Claude ProseMirror, Gemini)
+  // execCommand preserves newlines; textContent does not
   if (el.isContentEditable) {
-    el.textContent = text;
-    el.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
+    // Clear existing content first
+    el.focus();
+    document.execCommand('selectAll', false, null);
+    // Insert with newlines preserved
+    const success = document.execCommand('insertText', false, text);
+    if (!success) {
+      // execCommand fallback for browsers that block it
+      el.textContent = '';
+      const lines = text.split('\n');
+      lines.forEach((line, i) => {
+        el.appendChild(document.createTextNode(line));
+        if (i < lines.length - 1) el.appendChild(document.createElement('br'));
+      });
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    }
     return true;
   }
   return false;

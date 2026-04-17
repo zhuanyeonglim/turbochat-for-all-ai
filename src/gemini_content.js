@@ -277,7 +277,7 @@
       // ── Step 1: extract images from the LIVE element ──────────────────────
       // Must happen BEFORE cloning — detached clones have naturalWidth/width = 0
       // which causes the size filter in extractImages to kill every image.
-      const images = await core.extractImages(turn);
+      const images = await core.extractImages(turn, GEMINI_UI_STRIP);
 
       // ── Step 2: clone and strip UI chrome for text/HTML ───────────────────
       const inner = turn.cloneNode(true);
@@ -351,20 +351,55 @@
 })();
 
 // ── Prompt Library injection ──────────────────────────────────────────────────
-window.addEventListener('message', (e) => {
-  if (e.data?.type === 'TURBOCHAT_INSERT_PROMPT' && e.data.text) {
-    const selectors = ['textarea','[contenteditable="true"][role="textbox"]','[contenteditable="true"]'];
-    let el = null;
-    for (const s of selectors) { el = document.querySelector(s); if (el?.offsetParent) break; }
-    if (!el) return;
+function tcInsertPrompt(text) {
+  const selectors = [
+    '[contenteditable="true"][role="textbox"]',
+    '[contenteditable="true"][data-lexical-editor="true"]',
+    'div.ProseMirror[contenteditable="true"]',
+    '[contenteditable="true"]',
+    'textarea',
+  ];
+  let el = null;
+  for (const s of selectors) {
+    el = document.querySelector(s);
+    if (el && el.offsetParent !== null) break;
+  }
+  if (!el) return false;
+  el.focus();
+  if (el instanceof HTMLTextAreaElement) {
+    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set;
+    if (setter) setter.call(el, text); else el.value = text;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (el.isContentEditable) {
     el.focus();
-    if (el instanceof HTMLTextAreaElement) {
-      const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set;
-      setter?.call(el, e.data.text);
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    } else if (el.isContentEditable) {
-      el.textContent = e.data.text;
+    document.execCommand('selectAll', false, null);
+    const ok = document.execCommand('insertText', false, text);
+    if (!ok) {
+      el.textContent = '';
+      const lines = text.split('\n');
+      lines.forEach((line, i) => {
+        el.appendChild(document.createTextNode(line));
+        if (i < lines.length - 1) el.appendChild(document.createElement('br'));
+      });
       el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
     }
+  }
+  return true;
+}
+
+// postMessage channel (from side panel iframe)
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'TURBOCHAT_INSERT_PROMPT' && e.data.text) {
+    tcInsertPrompt(e.data.text);
+  }
+});
+
+// runtime.onMessage channel (from chrome.tabs.sendMessage in prompts.js)
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'TURBOCHAT_INSERT_PROMPT') {
+    const ok = tcInsertPrompt(msg.text || '');
+    sendResponse({ ok });
+    return false;
   }
 });

@@ -23,7 +23,11 @@
     "https://*.openai.com/*",
     "https://turbochat.zhuanyeonglim.workers.dev/*",
     "https://www.perplexity.ai/*",
-    "https://poe.com/*"
+    "https://poe.com/*",
+    "https://files.anthropic.com/*",
+    "https://*.anthropic.com/*",
+    "https://claude-files.s3.amazonaws.com/*",
+    "https://*.s3.amazonaws.com/*"
   ],
   "externally_connectable": {
     "matches": [
