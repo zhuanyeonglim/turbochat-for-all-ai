@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TurboChat — Prompt Library</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f9fa; --white: #ffffff; --border: #e5e7eb; --border2: #d1d5db;
+  --text: #111827; --muted: #6b7280; --faint: #9ca3af; --s2: #f3f4f6;
+  --accent: #10a37f; --accent-bg: rgba(16,163,127,.08); --accent-bd: rgba(16,163,127,.25);
+  --blue: #2563eb; --danger: #dc2626; --danger-bg: rgba(220,38,38,.07);
+  --shadow: 0 1px 3px rgba(0,0,0,.08); --shadow-md: 0 4px 16px rgba(0,0,0,.12);
+}
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px; -webkit-font-smoothing: antialiased; min-width: 480px; }
+
+/* ── Topbar ── */
+.topbar { height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  background: var(--white); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.brand { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+.brand-logo { width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, #10a37f, #2563eb);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.brand-sub { font-size: 12px; font-weight: 400; color: var(--muted); }
+.search-wrap { position: relative; flex: 1; max-width: 280px; }
+.search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+  color: var(--faint); font-size: 12px; pointer-events: none; }
+.search-input { width: 100%; background: var(--s2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px 7px 28px; font-size: 12px; font-family: inherit;
+  color: var(--text); outline: none; transition: border-color .15s; }
+.search-input:focus { border-color: var(--accent); background: var(--white); }
+.search-input::placeholder { color: var(--faint); }
+.topbar-right { display: flex; gap: 7px; margin-left: auto; align-items: center; }
+.btn-sm { background: var(--white); border: 1px solid var(--border2); border-radius: 7px;
+  padding: 6px 11px; font-size: 11px; font-weight: 500; color: var(--muted);
+  cursor: pointer; font-family: inherit; transition: all .15s; display: flex; align-items: center; gap: 4px; }
+.btn-sm:hover:not(:disabled) { color: var(--text); background: var(--s2); }
+.btn-sm:disabled { opacity: .4; cursor: default; }
+.btn-new { background: var(--accent); border: none; border-radius: 8px; padding: 7px 14px;
+  font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; font-family: inherit;
+  transition: opacity .15s; white-space: nowrap; }
+.btn-new:hover { opacity: .88; }
+input[type="file"] { display: none; }
+
+/* ── Pro limit bar ── */
+.pro-limit-bar { padding: 8px 14px; background: rgba(37,99,235,.04);
+  border-bottom: 1px solid rgba(37,99,235,.1); display: flex; align-items: center;
+  gap: 10px; flex-shrink: 0; }
+.limit-track { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.limit-fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width .3s; }
+#prompt-count-label { font-size: 11px; color: var(--blue); font-weight: 500; white-space: nowrap; }
+.upgrade-link { font-size: 11px; font-weight: 600; color: var(--accent);
+  text-decoration: none; white-space: nowrap; cursor: pointer; border: none; background: none; }
+
+/* ── Layout ── */
+.layout { display: flex; height: calc(100vh - 88px); overflow: hidden; }
+
+/* ── Sidebar ── */
+.sidebar { width: 195px; flex-shrink: 0; background: var(--white);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: visible; }
+.sidebar-section { padding: 10px 10px 4px; }
+.sidebar-label { font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--faint); padding: 0 6px; }
+.folder-scroll { overflow-y: auto; flex: 1; padding-bottom: 8px; }
+.folder-items { display: flex; flex-direction: column; gap: 1px; padding: 2px 8px; }
+
+/* Static folder items (All Prompts, Recent, Unfiled) */
+.folder-item { display: flex; align-items: center; gap: 7px; padding: 6px 8px;
+  border-radius: 7px; cursor: pointer; border: none; background: none; font-family: inherit;
+  font-size: 12px; color: var(--text); text-align: left; width: 100%; transition: background .1s; }
+.folder-item:hover { background: var(--s2); }
+.folder-item.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+.folder-item.active .folder-count { background: var(--accent-bd); color: var(--accent); }
+.folder-icon { font-size: 13px; flex-shrink: 0; }
+.folder-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.folder-count { font-size: 10px; background: var(--s2); color: var(--muted);
+  border-radius: 10px; padding: 1px 6px; flex-shrink: 0; }
+
+/* User folder rows (with rename/delete) */
+.folder-row { position: relative; border-radius: 7px; display: flex; align-items: center; }
+.folder-row:hover .folder-actions { opacity: 1; }
+.folder-item-inner { flex: 1; }
+.folder-actions { position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: flex; gap: 2px; opacity: 0; transition: opacity .12s; background: var(--s2);
+  border-radius: 5px; padding: 2px; }
+.folder-row.active .folder-actions { background: var(--accent-bg); }
+.folder-action-btn { background: none; border: none; cursor: pointer; font-size: 11px;
+  padding: 2px 4px; border-radius: 4px; color: var(--muted); transition: all .1s; }
+.folder-action-btn:hover { background: var(--border); color: var(--text); }
+
+.sidebar-divider { height: 1px; background: var(--border); margin: 6px 10px; }
+.btn-add-folder { display: flex; align-items: center; gap: 6px;
+  width: calc(100% - 20px); margin: 2px 10px 10px; padding: 7px 8px;
+  border: 1px dashed var(--border2); border-radius: 7px;
+  background: none; color: var(--muted); font-size: 12px; cursor: pointer;
+  font-family: inherit; transition: all .15s; flex-shrink: 0; }
+.btn-add-folder:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+/* ── Main content ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.list-header { padding: 12px 14px 8px; display: flex; align-items: center;
+  justify-content: space-between; flex-shrink: 0;
+  border-bottom: 1px solid var(--border); background: var(--white); }
+.list-title { font-size: 14px; font-weight: 600; }
+.list-count { font-size: 12px; color: var(--muted); }
+.prompt-list { flex: 1; overflow-y: auto; padding: 10px; display: grid; gap: 7px; align-content: start; }
+
+/* ── Prompt card ── */
+.prompt-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 13px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.prompt-card:hover { border-color: var(--border2); box-shadow: var(--shadow); }
+.prompt-card.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.card-top { display: flex; align-items: flex-start; gap: 8px; }
+.card-name { font-size: 13px; font-weight: 600; flex: 1; }
+.card-actions { opacity: 0; transition: opacity .12s; }
+.prompt-card:hover .card-actions, .prompt-card.active .card-actions { opacity: 1; }
+.btn-card-insert { border: 1px solid var(--border2); background: var(--white); border-radius: 6px;
+  padding: 3px 9px; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer;
+  font-family: inherit; transition: all .12s; white-space: nowrap; }
+.btn-card-insert:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.card-desc { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+.meta-tag { font-size: 10px; background: var(--s2); color: var(--muted); border-radius: 4px; padding: 2px 6px; }
+.meta-tag.var { background: rgba(37,99,235,.08); color: var(--blue); }
+.meta-tag.folder { background: var(--accent-bg); color: var(--accent); }
+
+/* ── Empty state ── */
+.empty { flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px; color: var(--muted); text-align: center; padding: 40px 20px; }
+.empty-icon { font-size: 40px; opacity: .3; }
+.empty-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.empty-sub { font-size: 12px; line-height: 1.6; max-width: 220px; }
+.btn-empty-new { margin-top: 8px; background: var(--accent); border: none; border-radius: 8px;
+  padding: 9px 20px; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; font-family: inherit; }
+
+/* ── Detail panel ── */
+.detail { position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, 100%);
+  background: var(--white); border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-md); display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .2s cubic-bezier(.4,0,.2,1); z-index: 50; }
+.detail.open { transform: translateX(0); }
+.detail-header { padding: 12px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.btn-close-detail { width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 6px;
+  background: none; cursor: pointer; color: var(--muted); display: flex; align-items: center;
+  justify-content: center; font-size: 16px; transition: all .12s; flex-shrink: 0; }
+.btn-close-detail:hover { background: var(--s2); color: var(--text); }
+.detail-header-title { font-size: 13px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-header-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.btn-icon { border: 1px solid var(--border2); background: var(--white); border-radius: 6px;
+  padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--muted);
+  cursor: pointer; font-family: inherit; transition: all .12s; display: flex; align-items: center; gap: 4px; }
+.btn-icon:hover { background: var(--s2); color: var(--text); }
+.btn-icon.danger:hover { background: var(--danger-bg); color: var(--danger); border-color: rgba(220,38,38,.25); }
+.btn-primary { background: var(--accent); border: none; border-radius: 6px; padding: 5px 14px;
+  font-size: 11px; font-weight: 700; color: #fff; cursor: pointer; font-family: inherit; transition: opacity .15s; }
+.btn-primary:hover { opacity: .88; }
+.detail-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 13px; }
+
+/* Fields */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.field-input, .field-select { background: var(--s2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+  color: var(--text); outline: none; transition: border-color .15s, background .15s; width: 100%; }
+.field-input:focus, .field-select:focus { border-color: var(--accent); background: var(--white); }
+.field-textarea { background: var(--s2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px; font-size: 12px; font-family: 'Consolas','Courier New',monospace;
+  color: var(--text); outline: none; transition: border-color .15s, background .15s;
+  width: 100%; resize: vertical; min-height: 160px; line-height: 1.65; }
+.field-textarea:focus { border-color: var(--accent); background: var(--white); }
+.field-hint { font-size: 11px; color: var(--muted); }
+.var-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.var-chip { font-size: 11px; font-weight: 600; background: rgba(37,99,235,.08); color: var(--blue);
+  border: 1px solid rgba(37,99,235,.15); border-radius: 4px; padding: 2px 7px; }
+.var-fill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* View sections */
+.view-section { background: var(--s2); border-radius: 8px; padding: 11px 13px; }
+.view-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin-bottom: 7px; }
+.view-text { font-size: 13px; color: var(--text); line-height: 1.6; white-space: pre-wrap; }
+.view-body-text { font-size: 12px; color: var(--text); line-height: 1.7; white-space: pre-wrap; font-family: 'Consolas','Courier New',monospace; }
+
+/* Footer */
+.detail-footer { padding: 11px 14px; border-top: 1px solid var(--border);
+  display: flex; gap: 8px; background: var(--white); flex-shrink: 0; }
+.btn-insert { background: var(--accent); border: none; border-radius: 8px; padding: 9px 0;
+  font-size: 13px; font-weight: 700; color: #fff; cursor: pointer; font-family: inherit;
+  transition: opacity .15s; flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.btn-insert:hover { opacity: .88; }
+.btn-copy { background: var(--white); border: 1px solid var(--border2); border-radius: 8px;
+  padding: 9px 14px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer;
+  font-family: inherit; transition: all .12s; }
+.btn-copy:hover { color: var(--text); background: var(--s2); }
+
+/* ── Folder modal ── */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.3); display: flex;
+  align-items: center; justify-content: center; z-index: 100; padding: 20px;
+  opacity: 0; pointer-events: none; transition: opacity .15s; }
+.overlay.open { opacity: 1; pointer-events: all; }
+.modal { background: var(--white); border-radius: 12px; padding: 20px; width: 100%;
+  max-width: 300px; box-shadow: var(--shadow-md); transform: scale(.96); transition: transform .15s; }
+.overlay.open .modal { transform: scale(1); }
+.modal-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+.modal-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+.btn-cancel { background: var(--white); border: 1px solid var(--border2); border-radius: 7px;
+  padding: 7px 14px; font-size: 12px; color: var(--muted); cursor: pointer; font-family: inherit; }
+.btn-cancel:hover { background: var(--s2); }
+.btn-modal-save { background: var(--accent); border: none; border-radius: 7px;
+  padding: 7px 16px; font-size: 12px; font-weight: 700; color: #fff; cursor: pointer; font-family: inherit; }
+
+/* ── Toast ── */
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(16px);
+  background: #1f2937; color: #fff; border-radius: 20px; padding: 7px 16px;
+  font-size: 12px; font-weight: 600; white-space: nowrap; z-index: 200;
+  opacity: 0; transition: all .2s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.ok { background: var(--accent); }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-logo">⚡</div>
+    TurboChat <span class="brand-sub">Prompts</span>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input class="search-input" id="search" placeholder="Search prompts…" autocomplete="off">
+  </div>
+  <div class="topbar-right">
+    <button class="btn-sm" id="btn-import">⬆ Import</button>
+    <button class="btn-sm" id="btn-export">⬇ Export</button>
+    <button class="btn-new" id="btn-new">+ New Prompt</button>
+  </div>
+  <input type="file" id="import-file" accept=".json">
+</div>
+
+<!-- Pro limit bar (hidden for Pro users) -->
+<div class="pro-limit-bar" id="pro-limit-bar">
+  <span id="prompt-count-label">0 / 10 prompts</span>
+  <div class="limit-track"><div class="limit-fill" id="prompt-count-bar" style="width:0%"></div></div>
+  <button class="upgrade-link" id="btn-upgrade-prompts">Upgrade for unlimited →</button>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Library</div>
+    </div>
+    <div class="folder-scroll">
+      <div class="folder-items" id="folder-items"></div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-label" style="padding: 0 14px 4px; display:block">Folders</div>
+      <div class="folder-items" id="folder-folder-items"></div>
+    </div>
+    <button class="btn-add-folder" id="btn-add-folder">+ New folder</button>
+  </div>
+
+  <div class="main">
+    <div class="list-header">
+      <span class="list-title" id="list-title">All Prompts</span>
+      <span class="list-count" id="list-count"></span>
+    </div>
+    <div class="prompt-list" id="prompt-list">
+      <div class="empty" id="initial-empty">
+        <div class="empty-icon">📝</div>
+        <div class="empty-title">No prompts yet</div>
+        <div class="empty-sub">Save your favourite prompts and insert them into any AI chat with one click</div>
+        <button class="btn-empty-new" id="btn-initial-new">+ Create your first prompt</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail panel -->
+<div class="detail" id="detail">
+  <div class="detail-header">
+    <button class="btn-close-detail" id="btn-close">×</button>
+    <div class="detail-header-title" id="detail-title">Prompt</div>
+    <div class="detail-header-actions" id="detail-actions"></div>
+  </div>
+  <div class="detail-body" id="detail-body"></div>
+  <div class="detail-footer" id="detail-footer" style="display:none">
+    <button class="btn-copy" id="btn-copy">Copy</button>
+    <button class="btn-insert" id="btn-insert">⚡ Insert into chat</button>
+  </div>
+</div>
+
+<!-- Folder modal -->
+<div class="overlay" id="folder-overlay">
+  <div class="modal">
+    <div class="modal-title" id="folder-modal-title">New Folder</div>
+    <div class="field">
+      <label class="field-label">Folder name</label>
+      <input class="field-input" id="folder-name-input" placeholder="e.g. Marketing, Coding…" maxlength="40">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="btn-folder-cancel">Cancel</button>
+      <button class="btn-modal-save" id="btn-folder-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="prompts.js"></script>
+</body>
+</html>
