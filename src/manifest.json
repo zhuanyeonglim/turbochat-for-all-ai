@@ -17,22 +17,12 @@
     "https://claude.ai/*",
     "https://gemini.google.com/*",
     "https://*.googleusercontent.com/*",
-    "https://*.google.com/*",
     "https://oaidalleapiprodscus.blob.core.windows.net/*",
     "https://*.openai.com/*",
-    "https://turbochat.zhuanyeonglim.workers.dev/*",
-    "https://www.perplexity.ai/*",
-    "https://poe.com/*",
     "https://files.anthropic.com/*",
     "https://*.anthropic.com/*",
-    "https://claude-files.s3.amazonaws.com/*",
-    "https://*.s3.amazonaws.com/*"
+    "https://claude-files.s3.amazonaws.com/*"
   ],
-  "externally_connectable": {
-    "matches": [
-      "https://turbochat.zhuanyeonglim.workers.dev/*"
-    ]
-  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -72,9 +62,7 @@
     {
       "matches": [
         "https://chatgpt.com/*",
-        "https://chat.openai.com/*",
-        "https://www.perplexity.ai/*",
-        "https://poe.com/*"
+        "https://chat.openai.com/*"
       ],
       "js": [
         "export_core.js",
@@ -119,15 +107,6 @@
       "js": [
         "export_core.js",
         "gemini_content.js"
-      ],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": [
-        "https://turbochat.zhuanyeonglim.workers.dev/*"
-      ],
-      "js": [
-        "success_bridge.js"
       ],
       "run_at": "document_idle"
     }

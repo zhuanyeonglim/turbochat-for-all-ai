@@ -84,27 +84,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     verifyProStatus().then(isPro => sendResponse({ isPro }));
     return true;
   }
-  if (msg.type === 'activate-pro-token') {
-    chrome.storage.sync.set({
-      tc_pro_token: msg.token,
-      tc_pro_email: msg.email,
-      tc_pro:       true,
-    }, () => sendResponse({ success: true }));
-    return true;
-  }
+
 });
 
-// ── External messages (from success page) ─────────────────────────────────────
-chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'turbochat-activate-pro' && msg.token && msg.email) {
-    chrome.storage.sync.set({
-      tc_pro_token: msg.token,
-      tc_pro_email: msg.email,
-      tc_pro:       true,
-    }, () => sendResponse({ success: true }));
-    return true;
-  }
-});
 
 // ── Pro token verification ────────────────────────────────────────────────────
 async function verifyProStatus() {
