@@ -251,6 +251,34 @@ input[type="file"] { display: none; }
   <button class="upgrade-link" id="btn-upgrade-prompts">Upgrade for unlimited →</button>
 </div>
 
+<!-- Storage warning banner -->
+<div id="storage-warning" style="
+  display: flex;
+  background: #fffbeb;
+  border-bottom: 1px solid #f59e0b;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #92400e;
+  line-height: 1.5;
+">
+  <span style="font-size:16px;flex-shrink:0;">⚠️</span>
+  <span>
+    <strong>Back up your prompts regularly.</strong>
+    Prompts are saved locally in your browser. 
+    They will be lost if you reinstall the extension or clear browser data.
+    Use <strong>⬇ Export</strong> to save a backup to your computer.
+  </span>
+  <button id="btn-dismiss-warning" style="
+    background:none;border:1px solid #f59e0b;border-radius:6px;
+    padding:3px 10px;font-size:11px;color:#92400e;cursor:pointer;
+    font-family:inherit;white-space:nowrap;flex-shrink:0;
+  ">Got it</button>
+</div>
+
 <div class="layout">
   <div class="sidebar">
     <div class="sidebar-section">

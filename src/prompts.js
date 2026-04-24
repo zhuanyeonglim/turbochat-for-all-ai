@@ -28,8 +28,28 @@ async function boot() {
   ]);
   renderAll();
   updateProUI();
+  initWarningBanner();
 }
 boot();
+
+// ── Storage warning banner ────────────────────────────────────────────────────
+async function initWarningBanner() {
+  const banner = document.getElementById('storage-warning');
+  if (!banner) return;
+  const dismissed = await S.get('tc_warning_dismissed', false);
+  // Always show unless explicitly dismissed — even with 0 prompts
+  if (dismissed) {
+    banner.style.display = 'none';
+    return;
+  }
+  // Show the banner
+  banner.style.display = 'flex';
+
+  document.getElementById('btn-dismiss-warning')?.addEventListener('click', async () => {
+    banner.style.display = 'none';
+    await S.set('tc_warning_dismissed', true);
+  });
+}
 
 function renderAll() { renderSidebar(); renderList(); }
 
